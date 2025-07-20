@@ -29,6 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
@@ -45,7 +46,9 @@ const debateFormSchema = z.object({
     .min(20, { message: "Description must be at least 20 characters." }),
   tags: z.string().min(1, { message: "Please add at least one tag." }),
   category: z.string({ required_error: "Please select a category." }),
-  imageUrl: z.string().url({ message: "Please enter a valid image URL." }),
+  imageUrl: z
+    .string()
+    .min(1, { message: "Please upload an image for the debate." }),
   duration: z.string({ required_error: "Please select a duration." }),
 });
 
@@ -75,7 +78,7 @@ export default function CreateDebatePage() {
       description: "",
       tags: "",
       category: "",
-      imageUrl: "https://placehold.co/1280x720.png",
+      imageUrl: "",
       duration: "",
     },
   });
@@ -179,15 +182,25 @@ export default function CreateDebatePage() {
                 name="imageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Banner Image URL</FormLabel>
+                    <FormLabel>Banner Image</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="https://example.com/image.png"
-                        {...field}
+                      <ImageUpload
+                        currentImageUrl={field.value}
+                        onUploadComplete={(url) => {
+                          field.onChange(url);
+                        }}
+                        onUploadError={(error) => {
+                          toast({
+                            variant: "destructive",
+                            title: "Upload Error",
+                            description: error,
+                          });
+                        }}
                       />
                     </FormControl>
                     <FormDescription>
-                      Use a high-quality, relevant image for the debate banner.
+                      Upload a high-quality, relevant image for the debate
+                      banner. Images are hosted on ImgBB.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
