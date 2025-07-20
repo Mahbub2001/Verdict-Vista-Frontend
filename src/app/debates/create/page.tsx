@@ -74,18 +74,24 @@ export default function CreateDebatePage() {
       title: "",
       description: "",
       tags: "",
+      category: "",
       imageUrl: "https://placehold.co/1280x720.png",
+      duration: "",
     },
   });
 
   async function onSubmit(data: DebateFormValues) {
     setIsSubmitting(true);
     try {
-      const newDebate = await dataService.createDebate({
+      const formattedData = {
         ...data,
         tags: data.tags.split(",").map((tag) => tag.trim()),
         duration: parseInt(data.duration, 10),
-      });
+      };
+
+      console.log("Submitting debate data:", formattedData);
+
+      const newDebate = await dataService.createDebate(formattedData);
 
       if (newDebate) {
         console.log("Created debate:", newDebate);
@@ -219,10 +225,18 @@ export default function CreateDebatePage() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="Technology">Technology</SelectItem>
-                          <SelectItem value="Science">Science</SelectItem>
                           <SelectItem value="Politics">Politics</SelectItem>
-                          <SelectItem value="Business">Business</SelectItem>
-                          <SelectItem value="Lifestyle">Lifestyle</SelectItem>
+                          <SelectItem value="Science">Science</SelectItem>
+                          <SelectItem value="Social">Social</SelectItem>
+                          <SelectItem value="Economics">Economics</SelectItem>
+                          <SelectItem value="Environment">
+                            Environment
+                          </SelectItem>
+                          <SelectItem value="Sports">Sports</SelectItem>
+                          <SelectItem value="Entertainment">
+                            Entertainment
+                          </SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

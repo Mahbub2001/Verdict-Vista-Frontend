@@ -21,6 +21,7 @@ import ArgumentCard from "./argument-card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { moderateArgumentText, generateDebateSummary } from "@/lib/actions";
+import { moderateText, getModerationErrorMessage } from "@/lib/moderation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { dataService } from "@/lib/data-service";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
@@ -52,6 +53,7 @@ export default function DebateClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [debateSummary, setDebateSummary] = useState<string | null>(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [replyDeadline, setReplyDeadline] = useState<Date | null>(null);
   const [replyTimeLeft, setReplyTimeLeft] = useState("");
   const [confirmationModal, setConfirmationModal] = useState<{
@@ -294,6 +296,22 @@ export default function DebateClient({
     setIsSubmitting(true);
     setModerationError(null);
 
+    // -----------------------------check for banned words-----------------------
+    const toxicWordsResult = moderateText(newArgument.trim());
+    if (!toxicWordsResult.isClean) {
+      const errorMessage = getModerationErrorMessage(toxicWordsResult);
+      setModerationError(errorMessage);
+      setIsSubmitting(false);
+
+      toast({
+        variant: "destructive",
+        title: "Content Moderation",
+        description: errorMessage,
+      });
+      return;
+    }
+
+    // -------------------------------AI moderation check--------------------------
     const moderationResult = await moderateArgumentText({ text: newArgument });
 
     if (!moderationResult.isSafe) {
@@ -471,20 +489,24 @@ export default function DebateClient({
     <div className="container mx-auto px-4 py-8">
       <Card className="mb-8 overflow-hidden">
         <div className="relative h-48 md:h-64">
-          {debate.imageUrl && debate.imageUrl.trim() !== "" ? (
+          {debate.imageUrl && debate.imageUrl.trim() !== "" && !imageError ? (
             <Image
               src={debate.imageUrl}
               alt={debate.title || "Debate topic"}
-              layout="fill"
-              objectFit="cover"
+              fill
+              style={{ objectFit: "cover" }}
               className="bg-muted"
               data-ai-hint="debate topic"
+              onError={() => setImageError(true)}
+              onLoad={() => setImageError(false)}
             />
           ) : (
             <div className="w-full h-full bg-muted flex items-center justify-center">
               <div className="text-muted-foreground text-center">
                 <Timer className="h-16 w-16 mx-auto mb-2 opacity-50" />
-                <p>No image available</p>
+                <p>
+                  {imageError ? "Failed to load image" : "No image available"}
+                </p>
               </div>
             </div>
           )}
@@ -594,23 +616,49 @@ export default function DebateClient({
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <Textarea
-                value={newArgument}
-                onChange={(e) => setNewArgument(e.target.value)}
-                placeholder="Make your point clearly and respectfully..."
-                rows={5}
-                disabled={isSubmitting}
-              />
+              <div className="space-y-2">
+                <Textarea
+                  value={newArgument}
+                  onChange={(e) => setNewArgument(e.target.value)}
+                  placeholder="Make your point clearly and respectfully..."
+                  rows={5}
+                  disabled={isSubmitting}
+                />
+                {/* Real-time moderation feedback */}
+                {newArgument.trim() &&
+                  (() => {
+                    const liveModeration = moderateText(newArgument.trim());
+                    if (!liveModeration.isClean) {
+                      return (
+                        <Alert
+                          variant="destructive"
+                          className="border-orange-200 bg-orange-50 text-orange-800"
+                        >
+                          <Frown className="h-4 w-4" />
+                          <AlertTitle>Content Warning</AlertTitle>
+                          <AlertDescription>
+                            {getModerationErrorMessage(liveModeration)}
+                          </AlertDescription>
+                        </Alert>
+                      );
+                    }
+                    return null;
+                  })()}
+              </div>
               {moderationError && (
                 <Alert variant="destructive">
                   <Frown className="h-4 w-4" />
-                  <AlertTitle>Moderation Warning</AlertTitle>
+                  <AlertTitle>Submission Blocked</AlertTitle>
                   <AlertDescription>{moderationError}</AlertDescription>
                 </Alert>
               )}
               <Button
                 onClick={handleSubmitArgument}
-                disabled={isSubmitting || !newArgument.trim()}
+                disabled={
+                  isSubmitting ||
+                  !newArgument.trim() ||
+                  !moderateText(newArgument.trim()).isClean
+                }
               >
                 <Plus className="mr-2 h-4 w-4" />
                 {isSubmitting ? "Submitting..." : "Submit Argument"}
